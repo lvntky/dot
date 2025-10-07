@@ -1,6 +1,6 @@
 ;;; Enhanced Minimal Emacs Configuration for C/C++/Assembly/Python
+;;; Focused on efficiency and ease of use
 ;;; Simple, fast, and easily extensible with essential productivity features
-;;; No emojis/icons in terminal; minimal dependencies
 
 ;;; ----------------------------------------
 ;;; Performance Optimization
@@ -35,6 +35,17 @@
 
 ;; Sane defaults
 (setq-default indent-tabs-mode nil)  ; Use spaces instead of tabs
+(setq-default fill-column 100)
+
+;; Better prompts
+(defalias 'yes-or-no-p 'y-or-n-p)
+
+;; Faster echo
+(setq echo-keystrokes 0.1)
+
+;; Better splitting
+(setq split-height-threshold nil
+      split-width-threshold 160)
 
 ;; Clean interface
 (tool-bar-mode -1)
@@ -43,15 +54,26 @@
 (show-paren-mode 1)
 (global-display-line-numbers-mode 1)
 (column-number-mode 1)
+(size-indication-mode 1)
+
+;; Delete selection when typing
+(delete-selection-mode 1)
+
+;; Remember cursor position
+(save-place-mode 1)
+
+;; Auto-revert buffers
+(global-auto-revert-mode 1)
+(setq global-auto-revert-non-file-buffers t)
 
 ;; Font configuration - Martian Mono (only if present)
 (when (find-font (font-spec :name "Martian Mono"))
   (set-face-attribute 'default nil :font "Martian Mono" :height 160))
 
-;; Recent files
+;; Recent files (consult will use this)
 (recentf-mode 1)
-(setq recentf-max-menu-items 25)
-(global-set-key (kbd "C-x C-r") 'recentf-open-files)
+(setq recentf-max-menu-items 50
+      recentf-max-saved-items 50)
 
 ;;; ----------------------------------------
 ;;; Theme - Simple and Clean
@@ -61,26 +83,12 @@
   (load-theme 'modus-vivendi t))
 
 ;;; ----------------------------------------
-;;; Enforce Emacs keybindings (Guru Mode)
+;;; Modern Completion Stack (Vertico + Consult + Embark)
 ;;; ----------------------------------------
-(use-package guru-mode
-  :hook (after-init . guru-global-mode)
-  :config
-  ;; Warn instead of blocking; set to nil to hard-disable offending keys
-  (setq guru-warn-only t))
-
-;;; ----------------------------------------
-;;; Discoverability / Minibuffer UX (lightweight, no icons)
-;;; ----------------------------------------
-(use-package which-key
-  :init (which-key-mode)
-  :config
-  (setq which-key-idle-delay 0.3
-        which-key-min-display-lines 5))
-
-;; Fast, minimal completion stack (works on Emacs 27+)
 (use-package vertico
-  :init (vertico-mode 1))
+  :init (vertico-mode 1)
+  :config
+  (setq vertico-cycle t))
 
 (use-package savehist
   :ensure nil
@@ -92,47 +100,105 @@
         completion-category-defaults nil
         completion-category-overrides '((file (styles basic partial-completion)))))
 
-;;; ----------------------------------------
-;;; Enhanced Search and Navigation
-;;; ----------------------------------------
-(use-package swiper
-  :bind ("C-s" . swiper))
+(use-package marginalia
+  :init (marginalia-mode)
+  :bind (:map minibuffer-local-map
+         ("M-A" . marginalia-cycle)))
 
+(use-package consult
+  :bind (("C-x b"   . consult-buffer)
+         ("C-x 4 b" . consult-buffer-other-window)
+         ("C-x r b" . consult-bookmark)
+         ("M-y"     . consult-yank-pop)
+         ("M-g g"   . consult-goto-line)
+         ("M-g M-g" . consult-goto-line)
+         ("M-s l"   . consult-line)
+         ("M-s r"   . consult-ripgrep)
+         ("C-x C-r" . consult-recent-file)
+         ("C-c g"   . consult-ripgrep))
+  :config
+  (setq consult-narrow-key "<"
+        consult-line-start-from-top t))
+
+(use-package embark
+  :bind (("C-." . embark-act)
+         ("C-," . embark-dwim)
+         ("C-h B" . embark-bindings))
+  :config
+  (setq prefix-help-command #'embark-prefix-help-command))
+
+(use-package embark-consult
+  :after (embark consult))
+
+;;; ----------------------------------------
+;;; Which-key for discoverability
+;;; ----------------------------------------
+(use-package which-key
+  :init (which-key-mode)
+  :config
+  (setq which-key-idle-delay 0.5
+        which-key-min-display-lines 5))
+
+;;; ----------------------------------------
+;;; Enhanced Navigation
+;;; ----------------------------------------
 (use-package avy
-  :bind ("C-;" . avy-goto-char-2))
+  :bind (("C-:" . avy-goto-char)
+         ("C-'" . avy-goto-char-2)
+         ("M-g w" . avy-goto-word-1)
+         ("M-g l" . avy-goto-line))
+  :config
+  (setq avy-timeout-seconds 0.3
+        avy-all-windows nil))
 
 ;;; ----------------------------------------
-;;; Window/Buffer Navigation (Ace Window)
+;;; Window Management
 ;;; ----------------------------------------
 (use-package ace-window
-  :ensure t
-  :commands (ace-window)
-  :init
-  ;; Bind early so it’s available even before the package fully loads
-  (global-set-key (kbd "M-o")  #'ace-window)
+  :bind (("M-o" . ace-window)
+         ("C-x o" . ace-window))
+  :config
   (setq aw-ignore-current t
         aw-scope 'frame
         aw-dispatch-always t))
 
-        ;; --- Make M-o always ace-window (override facemenu or others) ---
-(add-hook 'after-init-hook
-          (lambda ()
-            (global-set-key (kbd "M-o")  #'ace-window)  ;; primary
-            (global-set-key (kbd "C-x o") #'ace-window) ;; override other-window
-            (global-set-key (kbd "C-c o") #'ace-window))) ;; terminal-safe fallback
+;; Winner mode - undo/redo window changes
+(winner-mode 1)
+(global-set-key (kbd "C-c <left>")  'winner-undo)
+(global-set-key (kbd "C-c <right>") 'winner-redo)
 
+;; Windmove - arrow keys between windows
+(windmove-default-keybindings)
+(global-set-key (kbd "C-c <up>")    'windmove-up)
+(global-set-key (kbd "C-c <down>")  'windmove-down)
+
+;; Basic window commands
+(global-set-key (kbd "C-x 2") 'split-window-below)
+(global-set-key (kbd "C-x 3") 'split-window-right)
+(global-set-key (kbd "C-x 0") 'delete-window)
+(global-set-key (kbd "C-x 1") 'delete-other-windows)
+(global-set-key (kbd "C-x C-b") 'ibuffer)
 
 ;;; ----------------------------------------
-;;; Code Completion - Lightweight Alternative to LSP
+;;; Undo System
+;;; ----------------------------------------
+(use-package undo-tree
+  :init (global-undo-tree-mode)
+  :config
+  (setq undo-tree-auto-save-history nil)
+  :bind ("C-x u" . undo-tree-visualize))
+
+;;; ----------------------------------------
+;;; Code Completion
 ;;; ----------------------------------------
 (use-package company
   :hook (after-init . global-company-mode)
   :config
   (setq company-minimum-prefix-length 2
         company-idle-delay 0.2
-        company-show-numbers t))
+        company-show-numbers t
+        company-tooltip-align-annotations t))
 
-;; Better completion for C/C++
 (use-package company-c-headers
   :after company
   :config
@@ -156,7 +222,7 @@
 (use-package nasm-mode
   :mode "\\.\\(asm\\|nasm\\|s\\)\\'")
 
-;; FASM (Flat Assembler) support - Manual installation on first run
+;; FASM (Flat Assembler) support
 (unless (file-exists-p (expand-file-name "fasm-mode" user-emacs-directory))
   (let ((fasm-dir (expand-file-name "fasm-mode" user-emacs-directory)))
     (unless (file-directory-p fasm-dir)
@@ -165,8 +231,7 @@
 
 (add-to-list 'load-path (expand-file-name "fasm-mode" user-emacs-directory))
 (autoload 'fasm-mode "fasm-mode" "Major mode for editing FASM assembly files" t)
-;; FIXED regex (original had a typo)
-(add-to-list 'auto-mode-alist '("\\.\\(asm\\|fasm\\|inc\\)\\'" . fasm-mode))
+(add-to-list 'auto-mode-alist '("\\.\\(fasm\\|inc\\)\\'" . fasm-mode))
 
 ;; Python
 (use-package python-mode
@@ -174,13 +239,25 @@
   :config
   (setq python-indent-offset 4))
 
-;; Python virtual environment support
 (use-package pyvenv
   :config
   (pyvenv-mode 1))
 
+;; Better assembly defaults
+(add-hook 'asm-mode-hook
+          (lambda ()
+            (setq tab-width 8
+                  indent-tabs-mode t)
+            (setq comment-start "#")))
+
+;; Makefile mode
+(add-hook 'makefile-mode-hook
+          (lambda ()
+            (setq indent-tabs-mode t)
+            (setq show-trailing-whitespace t)))
+
 ;;; ----------------------------------------
-;;; Code Navigation - Tags (lightweight)
+;;; Code Navigation - Tags
 ;;; ----------------------------------------
 (use-package ggtags
   :hook ((c-mode c++-mode python-mode asm-mode nasm-mode fasm-mode) . ggtags-mode)
@@ -202,6 +279,7 @@
   :config
   (smartparens-global-mode 1))
 
+;; Code folding
 (add-hook 'prog-mode-hook #'hs-minor-mode)
 (global-set-key (kbd "C-c h") 'hs-toggle-hiding)
 
@@ -210,23 +288,33 @@
          ("C-<" . mc/mark-previous-like-this)
          ("C-c C->" . mc/mark-all-like-this)))
 
-(use-package rainbow-delimiters
-  :hook (prog-mode . rainbow-delimiters-mode))
-
-(use-package hl-todo
-  :hook (prog-mode . hl-todo-mode)
+;; Auto-indent as you type
+(use-package aggressive-indent
+  :hook ((c-mode c++-mode python-mode emacs-lisp-mode) . aggressive-indent-mode)
   :config
-  (setq hl-todo-keyword-faces
-        '(("TODO"  . warning)
-          ("FIXME" . error)
-          ("NOTE"  . success)
-          ("HACK"  . font-lock-constant-face))))
+  (add-to-list 'aggressive-indent-excluded-modes 'asm-mode))
+
+;; Whitespace cleanup
+(use-package ws-butler
+  :hook (prog-mode . ws-butler-mode))
+
+;; Useful editing commands
+(use-package crux
+  :bind (("C-a" . crux-move-beginning-of-line)
+         ("C-c D" . crux-delete-file-and-buffer)
+         ("C-c d" . crux-duplicate-current-line-or-region)
+         ("C-c r" . crux-rename-file-and-buffer)
+         ("C-c k" . crux-kill-other-buffers)))
 
 ;;; ----------------------------------------
-;;; Version Control & File Management
+;;; Version Control
 ;;; ----------------------------------------
 (use-package magit
   :bind ("C-x g" . magit-status))
+
+(use-package diff-hl
+  :hook ((prog-mode . diff-hl-mode)
+         (dired-mode . diff-hl-dired-mode)))
 
 (use-package dired-subtree
   :bind (:map dired-mode-map
@@ -245,11 +333,10 @@
 ;;; Terminal Integration
 ;;; ----------------------------------------
 (global-set-key (kbd "C-c t") 'term)
-;; Disable line numbers inside terminal buffers
 (add-hook 'term-mode-hook (lambda () (display-line-numbers-mode 0)))
 
 ;;; ----------------------------------------
-;;; Header/File Templates (Auto Insert)
+;;; Header/File Templates
 ;;; ----------------------------------------
 (use-package autoinsert
   :ensure nil
@@ -259,7 +346,6 @@
   (setq auto-insert-directory "~/.emacs.d/templates/"
         auto-insert-query nil)
 
-  ;; C header template
   (define-auto-insert "\\.h\\'"
     '("Header guard: "
       "#ifndef " (upcase (file-name-nondirectory (file-name-sans-extension buffer-file-name))) "_H\n"
@@ -274,21 +360,18 @@
       "#endif\n\n"
       "#endif /* " (upcase (file-name-nondirectory (file-name-sans-extension buffer-file-name))) "_H */\n"))
 
-  ;; C source template
   (define-auto-insert "\\.c\\'"
     '("C source: "
       "/* " (file-name-nondirectory buffer-file-name) " - " (read-string "Description: ") " */\n\n"
       "#include \"" (file-name-sans-extension (file-name-nondirectory buffer-file-name)) ".h\"\n\n"
       _))
 
-  ;; C++ source template
   (define-auto-insert "\\.cpp\\'"
     '("C++ source: "
       "/* " (file-name-nondirectory buffer-file-name) " - " (read-string "Description: ") " */\n\n"
       "#include \"" (file-name-sans-extension (file-name-nondirectory buffer-file-name)) ".h\"\n\n"
       _))
 
-  ;; Python template
   (define-auto-insert "\\.py\\'"
     '("Python script: "
       "#!/usr/bin/env python3\n"
@@ -302,7 +385,6 @@
       "if __name__ == '__main__':\n"
       "    main()\n"))
 
-  ;; Assembly template (NASM)
   (define-auto-insert "\\.\\(asm\\|s\\)\\'"
     '("Assembly file: "
       "; " (file-name-nondirectory buffer-file-name) " - " (read-string "Description: ") "\n"
@@ -319,7 +401,6 @@
       "    mov rdi, 0\n"
       "    syscall\n"))
 
-  ;; FASM template
   (define-auto-insert "\\.fasm\\'"
     '("FASM file: "
       "; " (file-name-nondirectory buffer-file-name) " - " (read-string "Description: ") "\n"
@@ -340,6 +421,16 @@
 ;;; ----------------------------------------
 (global-set-key (kbd "<f5>") 'compile)
 (global-set-key (kbd "<f6>") 'recompile)
+
+(setq compilation-scroll-output t
+      compilation-window-height 12)
+
+;; ANSI colors in compilation buffer
+(require 'ansi-color)
+(defun colorize-compilation-buffer ()
+  (let ((inhibit-read-only t))
+    (ansi-color-apply-on-region (point-min) (point-max))))
+(add-hook 'compilation-filter-hook 'colorize-compilation-buffer)
 
 (defun my-compile-command ()
   "Set compile command based on current buffer's major mode."
@@ -375,131 +466,136 @@
 (global-set-key (kbd "<f9>") 'gdb)
 
 ;;; ----------------------------------------
-;;; Project Management - Simple
+;;; Project Management
 ;;; ----------------------------------------
 (use-package projectile
   :init
   (projectile-mode +1)
   :bind-keymap
   ("C-c p" . projectile-command-map)
+  :bind (("C-c f" . projectile-find-file)
+         ("C-c s" . projectile-switch-project))
   :config
-  (setq projectile-completion-system 'default))
+  (setq projectile-completion-system 'default
+        projectile-enable-caching t
+        projectile-indexing-method 'alien))
 
 ;;; ----------------------------------------
-;;; Helpful Key Bindings
-;;; ----------------------------------------
-(global-set-key (kbd "C-c c") 'compile)
-(global-set-key (kbd "C-c r") 'recompile)
-(global-set-key (kbd "C-c g") 'grep-find)
-(global-set-key (kbd "C-c m") 'man)
-
-;;; ----------------------------------------
-;;; Window/Buffer Management
-;;; ----------------------------------------
-(global-set-key (kbd "C-x 2") 'split-window-below)
-(global-set-key (kbd "C-x 3") 'split-window-right)
-(global-set-key (kbd "C-x 0") 'delete-window)
-(global-set-key (kbd "C-x 1") 'delete-other-windows)
-(global-set-key (kbd "C-x C-b") 'ibuffer)
-
-;;; ----------------------------------------
-;;; Professional but Subtle Visual Polish (no emoji/icons)
+;;; Visual Polish (minimal)
 ;;; ----------------------------------------
 ;; Subtle line spacing
 (setq-default line-spacing 0.15)
 
-;; Enable pixel-precise scrolling only if available (Emacs 29+)
+;; Pixel scrolling (Emacs 29+)
 (when (fboundp 'pixel-scroll-precision-mode)
   (pixel-scroll-precision-mode 1))
 
-;; Crisp window borders
+;; Window borders
 (window-divider-mode 1)
 (setq window-divider-default-right-width 2
       window-divider-default-bottom-width 2)
 
-;; Smooth scrolling behavior
-(setq scroll-margin 4
+;; Smooth scrolling
+(setq scroll-margin 8
       scroll-conservatively 101
       mouse-wheel-scroll-amount '(1)
       mouse-wheel-progressive-speed nil
       fast-but-imprecise-scrolling t
       redisplay-dont-pause t)
 
-;; Highlight current line and show a soft column guide
+;; Highlight current line
 (global-hl-line-mode 1)
+
+;; Column indicator
 (setq display-fill-column-indicator-column 100)
 (add-hook 'prog-mode-hook (lambda () (display-fill-column-indicator-mode 1)))
 
-;; Sleek modeline without icons/emojis (keeps it lean for terminal)
-(use-package doom-modeline
-  :init (doom-modeline-mode 1)
-  :custom
-  (doom-modeline-height 22)
-  (doom-modeline-icon nil)             ;; <- no icons/emojis anywhere
-  (doom-modeline-buffer-file-name-style 'truncate-with-project))
+;; Search highlighting
+(setq lazy-highlight-initial-delay 0
+      lazy-highlight-max-at-a-time nil)
 
-;; Frame title helpful when juggling projects
+;; Frame title
 (setq frame-title-format
-      '("%b — " (:eval (if (and (featurep 'projectile) (projectile-project-p))
+      '("%b – " (:eval (if (and (featurep 'projectile) (projectile-project-p))
                            (abbreviate-file-name (projectile-project-root))
-                         "%f"))))
+                         "Emacs"))))
 
 ;;; ----------------------------------------
-;;; Cheatsheet (curated keybindings in this config)
+;;; Buffer Cycling
+;;; ----------------------------------------
+(global-set-key (kbd "C-c b") 'next-buffer)
+(global-set-key (kbd "C-c B") 'previous-buffer)
+
+;;; ----------------------------------------
+;;; Helpful Key Bindings
+;;; ----------------------------------------
+(global-set-key (kbd "C-c c") 'compile)
+(global-set-key (kbd "C-c m") 'man)
+
+;;; ----------------------------------------
+;;; Expand Region (smart selection)
+;;; ----------------------------------------
+(use-package expand-region
+  :bind ("C-=" . er/expand-region))
+
+;;; ----------------------------------------
+;;; Cheatsheet
 ;;; ----------------------------------------
 (defun my-config-cheatsheet ()
-  "Show a curated cheatsheet of keybindings from this config.
-Only lists items whose commands exist and are bound."
+  "Show a curated cheatsheet of keybindings from this config."
   (interactive)
   (let* ((items
           `(("Navigation & Windows"
-             ,@(when (fboundp 'ace-window)
-                 '(("M-o / C-x o" "Switch window (ace-window)")))
-             (("C-x 2" "Split below")
-              ("C-x 3" "Split right")
-              ("C-x 0" "Delete window")
-              ("C-x 1" "Delete other windows")
+             (("M-o / C-x o" "Switch window (ace-window)")
+              ("C-x 2 / 3" "Split below/right")
+              ("C-x 0 / 1" "Delete window/others")
+              ("C-c arrows" "Windmove or winner undo/redo")
               ("C-x C-b" "ibuffer")))
             ("Search & Jump"
-             (("C-s" "Swiper search")
-              ,@(when (fboundp 'avy-goto-char-2) '(("C-;" "Avy: jump to 2 chars")))))
+             (("C-s" "Search (consult-line with M-s l)")
+              ("C-: / C-'" "Avy: jump to char/2-char")
+              ("M-g w / l" "Avy: jump to word/line")
+              ("M-s r" "Ripgrep in project")))
             ("Editing"
-             ,@(when (fboundp 'smartparens-mode)
-                 '(("smartparens" "Auto pairs (enabled globally)")))
-             (("C-c h" "Toggle fold (hs-minor-mode)")
-              ,@(when (fboundp 'mc/mark-next-like-this)
-                  '(("C-> / C-<" "Multiple cursors next/prev")
-                    ("C-c C->" "Multiple cursors: mark all")))))
-            ("Completion"
-             ,@(when (bound-and-true-p global-company-mode)
-                 '(("company" "Completion (idle=0.2s; M-n/M-p cycle)"))))
+             (("C-a" "Smart beginning of line")
+              ("C-=" "Expand region")
+              ("C-c h" "Toggle fold")
+              ("C-c d" "Duplicate line/region")
+              ("C-c D" "Delete file and buffer")
+              ("C-c r" "Rename file and buffer")
+              ("C-> / C-<" "Multiple cursors next/prev")
+              ("C-c C->" "Multiple cursors: mark all")
+              ("C-x u" "Visual undo tree")))
+            ("Completion & Minibuffer"
+             (("C-x b" "Switch buffer (consult)")
+              ("C-x C-r" "Recent files")
+              ("M-y" "Yank from kill ring")
+              ("C-. / C-," "Embark: act/dwim on thing at point")
+              ("M-g g" "Goto line")))
             ("Project & VCS"
-             ,@(when (fboundp 'projectile-command-map)
-                 '(("C-c p" "Projectile commands")))
-             ,@(when (fboundp 'magit-status)
-                 '(("C-x g" "Magit status"))))
+             (("C-c p" "Projectile commands")
+              ("C-c f" "Find file in project")
+              ("C-c s" "Switch project")
+              ("C-x g" "Magit status")))
             ("Tags/Xref"
              (("M-." "Jump to definition")
               ("M-," "Pop mark")
-              ,@(when (boundp 'ggtags-mode-map)
-                  '(("C-c g s/h/r/f/c" "ggtags: sym/history/ref/file/create")))))
+              ("C-c g s/h/r/f/c" "ggtags: sym/hist/ref/file/create")))
             ("Build & Run"
              (("<f5> / C-c c" "Compile")
-              ("<f6> / C-c r" "Recompile")
+              ("<f6>" "Recompile")
               ("<f9>" "GDB (many windows)")))
             ("Terminal & Utilities"
              (("C-c t" "Open term")
-              ("C-x C-r" "Recent files")
-              ("C-c g" "grep-find")
-              ("C-c m" "man page"))
-             ,@(when (fboundp 'which-key-mode)
-                 '(("which-key" "Popup key suggestions after 0.3s"))))))
+              ("C-c m" "Man page")
+              ("C-c b/B" "Next/previous buffer")
+              ("C-c k" "Kill other buffers")))))
          (buf (get-buffer-create "*Emacs Cheatsheet*")))
     (with-current-buffer buf
       (read-only-mode -1)
       (erase-buffer)
-      (insert "Emacs Cheatsheet (from this config)\n")
-      (insert "=================================\n\n")
+      (insert "Emacs Cheatsheet (Efficiency-Focused Config)\n")
+      (insert "=============================================\n\n")
       (dolist (group items)
         (let ((title (car group))
               (pairs (cdr group)))
@@ -508,8 +604,10 @@ Only lists items whose commands exist and are bound."
           (insert "\n")
           (dolist (p pairs)
             (when (and (listp p) (= (length p) 2))
-              (insert (format "  %-14s  %s\n" (car p) (cadr p)))))
+              (insert (format "  %-18s  %s\n" (car p) (cadr p)))))
           (insert "\n")))
+      (insert "Tip: Use C-h B (embark-bindings) to explore all bindings\n")
+      (insert "Tip: Use C-. on anything to see contextual actions (embark)\n")
       (goto-char (point-min))
       (view-mode 1))
     (pop-to-buffer buf)))
@@ -517,44 +615,22 @@ Only lists items whose commands exist and are bound."
 (global-set-key (kbd "C-c ?") #'my-config-cheatsheet)
 
 ;;; ----------------------------------------
-;;; Setup Instructions (reference)
+;;; Custom variables (auto-generated)
+;;; ----------------------------------------
+(custom-set-variables
+ '(package-selected-packages
+   '(expand-region crux ws-butler aggressive-indent diff-hl embark-consult
+     embark consult marginalia modus-themes undo-tree use-package smartparens
+     pyvenv python-mode projectile nasm-mode multiple-cursors magit helpful
+     ggtags dired-subtree company-c-headers avy which-key vertico orderless
+     ace-window)))
+(custom-set-faces)
+
+;;; ----------------------------------------
+;;; Quick Setup Instructions
 ;;; ----------------------------------------
 ;; 1. Save this as ~/.emacs.d/init.el
 ;; 2. Start Emacs (packages will install automatically)
-;; 3. For code navigation, run 'gtags' or 'ctags -R .' in project directories
-;; 4. Create ~/.emacs.d/templates/ directory for custom templates
-
-;;; ----------------------------------------
-;;; Essential Key Bindings (reminder)
-;;; ----------------------------------------
-;; F5         - compile current file
-;; F6         - recompile
-;; F9         - start debugger (gdb)
-;; M-o/C-x o  - switch window (ace-window)
-;; M-.        - jump to definition
-;; M-,        - go back from definition
-;; C-s        - swiper search
-;; C-;        - avy jump to char
-;; C-> / C-<  - multiple cursors next/prev
-;; C-x g      - magit status
-;; C-x C-r    - recent files
-;; C-c p      - projectile commands
-;; C-c h      - toggle code folding
-;; C-c t      - terminal
-;; C-c g      - grep in project
-;; C-c m      - man pages
-;; C-c ?      - show this cheatsheet
-
-(custom-set-variables
- ;; custom-set-variables was added by Custom.
- ;; If you edit it by hand, you could mess it up, so be careful.
- ;; Your init file should contain only one such instance.
- ;; If there is more than one, they won't work right.
- '(package-selected-packages
-   '(modus-themes use-package swiper smartparens pyvenv python-mode projectile nasm-mode multiple-cursors magit helpful ggtags dired-subtree company-c-headers avy which-key vertico orderless rainbow-delimiters hl-todo doom-modeline ace-window)))
-(custom-set-faces
- ;; custom-set-faces was added by Custom.
- ;; If you edit it by hand, you could mess it up, so be careful.
- ;; Your init file should contain only one such instance.
- ;; If there is more than one, they won't work right.
- )
+;; 3. Press C-c ? for the cheatsheet
+;; 4. For code navigation, run 'gtags' in project directories
+;; 5. Install ripgrep for fast project search: sudo apt install ripgrep
