@@ -1,14 +1,14 @@
 font:
   normal:
-    family: "MesloLGS NF"
+    family: "Martian Mono"
     style: Regular
   bold:
-    family: "MesloLGS NF"
+    family: "Martian Mono"
     style: Bold
   italic:
-    family: "MesloLGS NF"
+    family: "Martian Mono"
     style: Italic
-  size: 13.0
+  size: 11.0
   offset:
     x: 0
     y: 0

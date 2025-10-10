@@ -19,18 +19,18 @@ order += "tztime local"
 
 # ---- MODULES ----
 
-wireless wlp2s0 {
-    format_up = "WiFi: %essid %quality %bitrate %ip"
-    format_down = "WiFi: down"
-}
-
 ethernet enp3s0 {
     format_up = "LAN: %ip"
     format_down = "LAN: down"
 }
 
+wireless wlp2s0 {
+    format_up = "WiFi: %essid %quality %ip"
+    format_down = "WiFi: down"
+}
+
 battery all {
-    format = "BAT: %percentage %remaining"
+    format = "BAT: %percentage"
     low_threshold = 15
     threshold_type = percentage
     hide_seconds = true
