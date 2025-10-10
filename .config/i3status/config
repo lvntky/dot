@@ -1,0 +1,59 @@
+# i3status — lean & readable, with sane thresholds
+general {
+    colors = true
+    interval = 1
+    color_good = "#00ff00"
+    color_degraded = "#f1f100"
+    color_bad = "#ff0000"
+}
+
+# ---- ORDER (left→right) ----
+order += "ethernet enp3s0"        # change iface name
+order += "wireless wlp2s0"     # change iface name
+order += "battery all"
+order += "memory"
+order += "disk /"
+order += "disk /home"
+order += "read_file Updates"
+order += "tztime local"
+
+# ---- MODULES ----
+
+wireless wlp2s0 {
+    format_up = "WiFi: %essid %quality %bitrate %ip"
+    format_down = "WiFi: down"
+}
+
+ethernet enp3s0 {
+    format_up = "LAN: %ip"
+    format_down = "LAN: down"
+}
+
+battery all {
+    format = "BAT: %percentage %remaining"
+    low_threshold = 15
+    threshold_type = percentage
+    hide_seconds = true
+    last_full_capacity = true
+}
+
+memory {
+    format = "RAM: %used/%total"
+    threshold_degraded = "70%"
+    threshold_critical = "90%"
+}
+
+disk "/" {
+    format = "/: %avail"
+    low_threshold = 10
+}
+
+disk "/home" {
+    format = "~: %avail"
+    low_threshold = 10
+}
+
+tztime local {
+    format = "%d-%m-%Y %a %H:%M"      # no emoji, plain glyph OK; replace with pure text if you prefer:
+    # format = "Time: %Y-%m-%d %a %H:%M"
+}
