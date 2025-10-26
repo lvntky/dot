@@ -9,7 +9,7 @@ general {
 
 # ---- ORDER (left→right) ----
 order += "ethernet enp3s0"        # change iface name
-order += "wireless wlp2s0"     # change iface name
+order += "wireless wlp2s0"        # change iface name
 order += "battery all"
 order += "memory"
 order += "disk /"
@@ -18,7 +18,6 @@ order += "read_file Updates"
 order += "tztime local"
 
 # ---- MODULES ----
-
 ethernet enp3s0 {
     format_up = "LAN: %ip"
     format_down = "LAN: down"
@@ -30,7 +29,12 @@ wireless wlp2s0 {
 }
 
 battery all {
-    format = "BAT: %percentage"
+    format = "%status %percentage"
+    format_down = "No battery"
+    status_chr = "CHR:"         # charging
+    status_bat = "BAT:"         # discharging
+    status_unk = "UNK:"         # unknown
+    status_full = "FULL"        # full
     low_threshold = 15
     threshold_type = percentage
     hide_seconds = true
@@ -41,6 +45,7 @@ memory {
     format = "RAM: %used/%total"
     threshold_degraded = "70%"
     threshold_critical = "90%"
+    format_degraded = "RAM: %used/%total"
 }
 
 disk "/" {
@@ -54,6 +59,5 @@ disk "/home" {
 }
 
 tztime local {
-    format = "%d-%m-%Y %a %H:%M"      # no emoji, plain glyph OK; replace with pure text if you prefer:
-    # format = "Time: %Y-%m-%d %a %H:%M"
+    format = "%d-%m-%Y %a %H:%M"
 }

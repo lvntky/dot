@@ -1,5 +1,5 @@
 ;;; Enhanced Minimal Emacs Configuration for C/C++/Assembly/Python
-;;; Simple, fast, Linux style (tabs=8, 80 cols), NO auto-indentation
+;;; Simple, fast, Linux style (tabs=8, 80 cols)
 
 ;;; ----------------------------------------
 ;;; Performance
@@ -8,21 +8,17 @@
 (add-hook 'after-init-hook (lambda () (setq gc-cons-threshold 800000)))
 
 ;;; ----------------------------------------
-;;; Package Management
+;;; Package Management (stable flow)
 ;;; ----------------------------------------
 (require 'package)
 (setq package-archives
       '(("melpa" . "https://melpa.org/packages/")
         ("gnu"   . "https://elpa.gnu.org/packages/")))
-(unless package--initialized (package-initialize))
-
-;; Refresh once if archive is empty
+(package-initialize)
 (unless package-archive-contents
   (package-refresh-contents))
-
 (unless (package-installed-p 'use-package)
   (package-install 'use-package))
-
 (require 'use-package)
 (setq use-package-always-ensure t)
 
@@ -40,18 +36,16 @@
       backup-directory-alist '(("." . "~/.emacs.d/backups"))
       auto-save-file-name-transforms '((".*" "~/.emacs.d/auto-saves/" t))
       require-final-newline t
-      scroll-conservatively 10000
       byte-compile-warnings '(not free-vars unresolved noruntime lexical make-local))
 
-;; Linux style (but no auto-indent)
+;; Linux style with auto-indent
 (setq-default indent-tabs-mode t)
 (setq-default tab-width 8)
 (setq-default fill-column 80)
 
-;; Absolutely disable auto-indentation
+;; Enable auto-indentation
 (when (boundp 'electric-indent-mode)
-  (electric-indent-mode -1))
-(setq-default electric-indent-inhibit t)
+  (electric-indent-mode 1))
 
 ;; Prompts & UI
 (defalias 'yes-or-no-p 'y-or-n-p)
@@ -89,7 +83,6 @@
 ;;; ----------------------------------------
 ;;; Completion / Minibuffer (version-aware)
 ;;; ----------------------------------------
-;; Save minibuffer history
 (use-package savehist :ensure nil :init (savehist-mode 1))
 
 ;; On Emacs 29+: Vertico + Orderless + Consult + Embark
@@ -123,12 +116,9 @@
 
 ;; On Emacs < 29.1: built-in Fido/icomplete + basic fallbacks
 (unless my/emacs-29+
-  ;; Fido vertical is a great, zero-deps fallback
   (setq icomplete-compute-delay 0
         icomplete-max-matches 50)
   (fido-vertical-mode 1)
-
-  ;; Provide "good enough" bindings where Consult would be
   (global-set-key (kbd "C-x b")   #'switch-to-buffer)
   (global-set-key (kbd "C-x 4 b") #'switch-to-buffer-other-window)
   (global-set-key (kbd "C-x r b") #'bookmark-jump)
@@ -141,12 +131,9 @@
   (global-set-key (kbd "C-.")     #'execute-extended-command))
 
 ;;; ----------------------------------------
-;;; Which-key
+;;; Which-key (minimal)
 ;;; ----------------------------------------
-(use-package which-key
-  :init (which-key-mode)
-  :config (setq which-key-idle-delay 0.5
-                which-key-min-display-lines 5))
+(use-package which-key :init (which-key-mode))
 
 ;;; ----------------------------------------
 ;;; Navigation
@@ -195,8 +182,8 @@
 (use-package company
   :hook (after-init . global-company-mode)
   :config
-  (setq company-minimum-prefix-length 2
-        company-idle-delay 0.2
+  (setq company-minimum-prefix-length 1
+        company-idle-delay 0.15
         company-show-numbers t
         company-tooltip-align-annotations t))
 
@@ -210,26 +197,21 @@
 ;;; ----------------------------------------
 (use-package cc-mode :ensure nil
   :config
-  ;; Keep Linux style vars but DO NOT auto-indent
+  ;; Linux style with auto-indent
   (setq c-default-style "linux"
-        c-basic-offset 8)
-  ;; Make sure RET doesn’t reindent automatically
-  (add-hook 'c-mode-common-hook
-            (lambda ()
-              (setq-local electric-indent-inhibit t)
-              (electric-indent-local-mode -1))))
+        c-basic-offset 8))
 
 (use-package nasm-mode
   :mode "\\.\\(asm\\|nasm\\|s\\)\\'")
 
-;; FASM (simple loader if present)
-(let ((fasm-dir (expand-file-name "fasm-mode" user-emacs-directory)))
-  (unless (file-directory-p fasm-dir)
-    (ignore-errors
-      (shell-command (format "git clone https://github.com/the-little-language-designer/fasm-mode.git %s" fasm-dir))))
-  (add-to-list 'load-path fasm-dir)
-  (autoload 'fasm-mode "fasm-mode" "Major mode for FASM" t)
-  (add-to-list 'auto-mode-alist '("\\.\\(fasm\\|inc\\)\\'" . fasm-mode)))
+;; FASM
+(when my/emacs-29+
+  (use-package fasm-mode
+    :vc (:url "https://github.com/the-little-language-designer/fasm-mode.git")
+    :mode ("\\.\\(fasm\\|inc\\)\\'" . fasm-mode)))
+(unless my/emacs-29+
+  ;; Pre-29: install fasm-mode manually and add to load-path if needed.
+  nil)
 
 (use-package python-mode
   :mode "\\.py\\'"
@@ -259,7 +241,7 @@
 (global-set-key (kbd "M-,") 'xref-pop-marker-stack)
 
 ;;; ----------------------------------------
-;;; Editing Aids (NO auto-indent)
+;;; Editing Aids
 ;;; ----------------------------------------
 (use-package smartparens :config (smartparens-global-mode 1))
 
@@ -271,9 +253,6 @@
   :bind (("C->" . mc/mark-next-like-this)
          ("C-<" . mc/mark-previous-like-this)
          ("C-c C->" . mc/mark-all-like-this)))
-
-;; NO aggressive-indent at all (removed)
-;; (use-package aggressive-indent ...)  ; intentionally omitted
 
 (use-package ws-butler :hook (prog-mode . ws-butler-mode))
 
@@ -291,12 +270,7 @@
 
 (use-package diff-hl
   :hook ((prog-mode . diff-hl-mode)
-         (dired-mode . diff-hl-dired-mode))
-  :config
-  (with-eval-after-load 'diff-hl
-    (defvar vc-svn-diff-switches nil)
-    (defvar vc-fossil-diff-switches nil)
-    (defvar vc-jj-diff-switches nil)))
+         (dired-mode . diff-hl-dired-mode)))
 
 (use-package dired-subtree
   :bind (:map dired-mode-map
@@ -312,10 +286,30 @@
          ("C-h k" . helpful-key)))
 
 ;;; ----------------------------------------
-;;; Terminal
+;;; Terminal (vterm with graceful fallback)
 ;;; ----------------------------------------
-(global-set-key (kbd "C-c t") 'term)
-(add-hook 'term-mode-hook (lambda () (display-line-numbers-mode 0)))
+(use-package vterm
+  :commands (vterm vterm-other-window)
+  :init
+  (setq vterm-max-scrollback 10000)
+  :config
+  ;; Handy keys inside vterm
+  (define-key vterm-mode-map (kbd "C-c C-k") #'vterm-copy-mode) ; toggle copy-mode
+  (define-key vterm-mode-map (kbd "C-c C-y") #'vterm-yank)
+  (add-hook 'vterm-mode-hook (lambda () (display-line-numbers-mode 0))))
+;; Global launcher with fallback
+(global-set-key
+ (kbd "C-c t")
+ (defun my/open-terminal ()
+   "Open vterm if available, otherwise fallback to term."
+   (interactive)
+   (if (fboundp 'vterm)
+       (vterm)
+     (term (getenv "SHELL")))))
+;; Also provide project vterm if Projectile is present
+(with-eval-after-load 'projectile
+  (when (fboundp 'projectile-run-vterm)
+    (define-key projectile-command-map (kbd "t") #'projectile-run-vterm)))
 
 ;;; ----------------------------------------
 ;;; Auto Insert Templates
@@ -397,7 +391,7 @@
       "    syscall\n")))
 
 ;;; ----------------------------------------
-;;; Compilation
+;;; Compilation (incremental ANSI color)
 ;;; ----------------------------------------
 (global-set-key (kbd "<f5>") 'compile)
 (global-set-key (kbd "<f6>") 'recompile)
@@ -405,29 +399,37 @@
       compilation-window-height 12)
 
 (require 'ansi-color)
-(defun colorize-compilation-buffer ()
+(defvar-local my/compilation-filter-start (point-min))
+(defun my/colorize-compilation ()
   (let ((inhibit-read-only t))
-    (ansi-color-apply-on-region (point-min) (point-max))))
-(add-hook 'compilation-filter-hook 'colorize-compilation-buffer)
+    (ansi-color-apply-on-region my/compilation-filter-start (point))
+    (setq my/compilation-filter-start (point))))
+(add-hook 'compilation-filter-hook
+          (lambda ()
+            (setq my/compilation-filter-start (or my/compilation-filter-start (point-min)))
+            (my/colorize-compilation)))
 
 (defun my-compile-command ()
   "Set compile command based on current buffer's major mode."
-  (let ((file (file-name-nondirectory buffer-file-name))
-        (file-noext (file-name-sans-extension (file-name-nondirectory buffer-file-name))))
-    (cond
-     ((eq major-mode 'c-mode)
-      (format "gcc -Wall -Wextra -std=c99 -g -o %s %s" file-noext file))
-     ((eq major-mode 'c++-mode)
-      (format "g++ -Wall -Wextra -std=c++17 -g -o %s %s" file-noext file))
-     ((eq major-mode 'python-mode)
-      (format "python3 %s" file))
-     ((or (eq major-mode 'nasm-mode) (eq major-mode 'asm-mode))
-      (format "nasm -f elf64 %s -o %s.o && ld %s.o -o %s" file file-noext file-noext file-noext))
-     ((eq major-mode 'fasm-mode)
-      (format "fasm %s %s" file file-noext))
-     (t "make"))))
-(defun my-set-compile-command () (set (make-local-variable 'compile-command) (my-compile-command)))
-(dolist (hook '(c-mode-hook c++-mode-hook python-mode-hook nasm-mode-hook fasm-mode-hook))
+  (if (not buffer-file-name)
+      "make"
+    (let* ((file (file-name-nondirectory buffer-file-name))
+           (file-noext (file-name-sans-extension file)))
+      (cond
+       ((eq major-mode 'c-mode)
+        (format "gcc -Wall -Wextra -std=c99 -g -o %s %s" file-noext file))
+       ((eq major-mode 'c++-mode)
+        (format "g++ -Wall -Wextra -std=c++17 -g -o %s %s" file-noext file))
+       ((eq major-mode 'python-mode)
+        (format "python3 %s" file))
+       ((or (eq major-mode 'nasm-mode) (eq major-mode 'asm-mode))
+        (format "nasm -f elf64 %s -o %s.o && ld %s.o -o %s" file file-noext file-noext file-noext))
+       ((eq major-mode 'fasm-mode)
+        (format "fasm %s %s" file file-noext))
+       (t "make")))))
+(defun my-set-compile-command ()
+  (set (make-local-variable 'compile-command) (my-compile-command)))
+(dolist (hook '(c-mode-hook c++-mode-hook python-mode-hook nasm-mode-hook fasm-mode-hook asm-mode-hook))
   (add-hook hook 'my-set-compile-command))
 
 ;;; ----------------------------------------
@@ -538,7 +540,7 @@
               ("<f6>" "Recompile")
               ("<f9>" "GDB many windows")))
             ("Terminal & Utilities"
-             (("C-c t" "term")
+             (("C-c t" "vterm (fallback: term)")
               ("C-c m" "man")
               ("C-c b/B" "Next/prev buffer")
               ("C-c k" "Kill other buffers")))))
@@ -546,7 +548,7 @@
     (with-current-buffer buf
       (read-only-mode -1)
       (erase-buffer)
-      (insert "Emacs Cheatsheet (Linux Style, no auto-indent)\n")
+      (insert "Emacs Cheatsheet (Linux Style)\n")
       (insert "===========================================\n\n")
       (dolist (group items)
         (let ((title (car group))
@@ -558,7 +560,7 @@
             (when (and (listp p) (= (length p) 2))
               (insert (format "  %-18s  %s\n" (car p) (cadr p)))))
           (insert "\n")))
-      (insert "Style: Tabs=8, 80 columns. Auto-indent disabled.\n")
+      (insert "Style: Tabs=8, 80 columns. Auto-indent enabled.\n")
       (goto-char (point-min))
       (view-mode 1))
     (pop-to-buffer buf)))
@@ -570,9 +572,7 @@
 ;;; ----------------------------------------
 (custom-set-variables
  '(package-selected-packages
-   '(expand-region crux ws-butler diff-hl projectile helpful magit multiple-cursors
-		   smartparens ggtags dired-subtree company-c-headers company
-		   which-key avy undo-tree modus-themes
-		   ;; The following will only be present on Emacs 29+: vertico orderless consult embark embark-consult
-		   )))
+   '(vterm expand-region crux ws-butler diff-hl projectile helpful magit multiple-cursors
+           smartparens ggtags dired-subtree company-c-headers company
+           which-key avy undo-tree modus-themes)))
 (custom-set-faces)
